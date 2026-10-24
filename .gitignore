@@ -1,0 +1,16 @@
+# credentials and per-run secrets — never commit these
+.host-password
+.host-password-*
+.operator-key
+.operator-key-*
+
+# the server's saved record of a live event
+.server-state*.json
+.server-state*.json.tmp
+
+# logs
+*.log
+
+# local tool settings
+.claude/
+node_modules/
