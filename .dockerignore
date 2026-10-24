@@ -1,0 +1,6 @@
+# Only the app files are copied in; keep everything else out of the build context.
+*
+!index.html
+!server.js
+!verify.js
+!README.md

@@ -18,6 +18,8 @@ race can't be rigged and how the fairness math works, see **[DESIGN.md](DESIGN.m
 |------|-----------|
 | `index.html` | The entire game — self-contained, no dependencies, no build step. Works on its own via `file://`, or served by `server.js`. |
 | `server.js` | A tiny Node HTTP server for **watch parties**: it hands every viewer the seed so they recompute the identical race locally, and keeps their screens in sync. |
+| `Dockerfile`, `compose.yaml` | Container image for the watch server — see [Docker](#docker). |
+| `.github/workflows/docker.yml` | CI: runs the tests, then builds, smoke-tests and publishes the image. |
 | `run-race.sh` | Convenience wrapper that starts `server.js` and prints the links. |
 | `share-public.sh` | Opens a temporary public HTTPS URL via cloudflared, on demand. |
 | `launch-clean.sh` | Launches Chrome with extensions disabled, for a tamper-resistant operator/viewer window. |
@@ -181,6 +183,85 @@ Full walkthrough in [DESIGN.md](DESIGN.md).
 
 `run-race.sh` runs in the foreground and stops when you log out. For an
 always-on server, use one of these.
+
+### Docker
+
+A ready-made image is published to GitHub Container Registry for every commit
+to `main` and every release, for `linux/amd64` and `linux/arm64` (so it runs on
+a Raspberry Pi too). It is just Node plus the app files: no dependencies, no
+build step.
+
+**Run it** (nothing to clone):
+
+```bash
+docker run -d --name pug-race --restart unless-stopped \
+  -p 8731:8731 \
+  -v pug-race-data:/data \
+  -e PUG_HOST_PASSWORD='my-secret-phrase' \
+  ghcr.io/pugman/pug-race:latest
+
+docker logs pug-race          # startup banner
+```
+
+Then open `http://<server-ip>:8731/` to host and give viewers
+`http://<server-ip>:8731/watch`, exactly as in [Run it on a server](#run-it-on-a-server).
+
+**Or with compose**, from a clone of this repo (`compose.yaml` sets up the same
+port, volume and restart policy):
+
+```bash
+PUG_HOST_PASSWORD='my-secret-phrase' docker compose up -d
+docker compose logs pug-race
+```
+
+**Settings.**
+
+| | |
+|---|---|
+| `-p 8731:8731` | The server always listens on 8731 inside the container. To serve on another port, change the left side: `-p 9000:8731`. |
+| `-v pug-race-data:/data` | The key, host password and saved event state. Keep this volume and they survive restarts and upgrades; without it, every new container starts from an empty record. |
+| `PUG_HOST_PASSWORD` | The host password. If you leave it unset, one is generated, printed in the logs and saved in the volume. |
+| `… pug-race:latest 8731 --fresh` | Arguments after the image name go to `server.js`; `--fresh` starts with an empty record. |
+
+**Image tags.**
+
+| Tag | What it is |
+|---|---|
+| `latest` | The newest commit on `main` |
+| `1.2.3`, `1.2` | A release (`git tag v1.2.3`); pin one of these for a live event |
+| `sha-<commit>` | One exact commit |
+
+**Upgrade** by pulling and recreating the container; the volume keeps the
+record:
+
+```bash
+docker pull ghcr.io/pugman/pug-race:latest
+docker rm -f pug-race && docker run …        # same command as above
+# or, with compose:
+docker compose pull && docker compose up -d
+```
+
+**Build it yourself** from a clone instead of pulling:
+
+```bash
+docker build -t pug-race .
+docker run -d --name pug-race -p 8731:8731 -v pug-race-data:/data pug-race
+# or: docker compose up -d --build
+```
+
+A few things differ from running it directly:
+
+- The startup banner shows the container's internal IP in the watch link. Hand
+  out your **host's** address instead: `http://<server-ip>:8731/watch`.
+- The operator key is in the volume:
+  `docker exec pug-race cat /data/.operator-key`.
+- `share-public.sh` and `launch-clean.sh` aren't in the image. Run them on the
+  host; they talk to the published port like any other server.
+- Behind a [reverse proxy](#reverse-proxy-domain--https) on the same machine,
+  publish only to localhost (`-p 127.0.0.1:8731:8731`) so the proxy is the only
+  way in.
+- Outside Docker, `PUG_DATA_DIR=/some/dir` moves the key, password and state
+  files out of the app directory in the same way.
 
 ### systemd (recommended)
 
@@ -423,6 +504,25 @@ then update `REFERENCE_BUILD` in `index.html` to the new fingerprint and run the
 tests again. Any change to the race code means old receipts show a
 build-mismatch warning (their results still reproduce), so say so in the
 release notes.
+
+### CI and releases
+
+`.github/workflows/docker.yml` runs on every pull request and every push to
+`main`: it runs the full test suite, builds the image, starts it and checks that
+the host password unlocks and the healthcheck passes. Pull requests stop there.
+Pushes to `main` also publish `ghcr.io/<owner>/pug-race:latest` and
+`:sha-<commit>`.
+
+To publish a release image, tag the commit and push the tag:
+
+```bash
+git tag v1.2.3 && git push origin v1.2.3     # publishes :1.2.3 and :1.2
+```
+
+The workflow pushes with the built-in `GITHUB_TOKEN`, so no secrets are needed.
+A new GHCR package starts out **private**: after the first publish, make it
+public under the repository's *Packages → pug-race → Package settings → Change
+visibility* so people can pull it without logging in.
 
 ---
 

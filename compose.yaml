@@ -1,0 +1,18 @@
+services:
+  pug-race:
+    # Pulls the published image; `docker compose up --build` builds this
+    # checkout instead.
+    image: ghcr.io/pugman/pug-race:latest
+    build: .
+    ports:
+      - "8731:8731"
+    environment:
+      # Leave unset to have one generated (printed in `docker compose logs`
+      # and saved in the volume).
+      PUG_HOST_PASSWORD: ${PUG_HOST_PASSWORD:-}
+    volumes:
+      - pug-race-data:/data
+    restart: unless-stopped
+
+volumes:
+  pug-race-data:

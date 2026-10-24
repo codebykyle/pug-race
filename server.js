@@ -14,6 +14,9 @@
  * It distributes parameters; it does not decide outcomes.
  *
  *   node server.js [port] [--fresh]     (--fresh: ignore the saved state file)
+ *
+ * Set PUG_DATA_DIR to keep the key, password and state files somewhere other
+ * than the app directory (e.g. a Docker volume).
  * --------------------------------------------------------------------- */
 "use strict";
 
@@ -24,6 +27,7 @@ var crypto = require("crypto");
 
 var PORT = parseInt(process.argv[2], 10) || 8731;
 var ROOT = __dirname;
+var DATA_DIR = process.env.PUG_DATA_DIR ? path.resolve(process.env.PUG_DATA_DIR) : ROOT;
 var COUNTDOWN_MS = 30000;         // lead time so late joiners can get on the watch link
 // A real race may only start once its commitment has been public this long.
 // An operator who re-commits after hearing the audience value has to leave the
@@ -39,7 +43,7 @@ var OPERATOR_KEY = crypto.randomBytes(16).toString("hex");
 // Key file is per-port, so two instances in the same directory never clobber
 // each other's key. (.operator-key stays the name for the default port so the
 // helper scripts keep working unchanged.)
-var KEY_FILE = path.join(ROOT, PORT === 8731 ? ".operator-key" : ".operator-key-" + PORT);
+var KEY_FILE = path.join(DATA_DIR, PORT === 8731 ? ".operator-key" : ".operator-key-" + PORT);
 try {
   fs.writeFileSync(KEY_FILE, OPERATOR_KEY + "\n", { mode: 0o600 });
   fs.chmodSync(KEY_FILE, 0o600);
@@ -69,7 +73,7 @@ process.on("exit", cleanupKey);
 // generate one, persist it, and print it — so the gate is ON by default and
 // stays stable across restarts. Unlike the key, this file is NOT deleted on
 // exit; it is a credential you chose to keep.
-var HOST_PW_FILE = path.join(ROOT, PORT === 8731 ? ".host-password" : ".host-password-" + PORT);
+var HOST_PW_FILE = path.join(DATA_DIR, PORT === 8731 ? ".host-password" : ".host-password-" + PORT);
 var HOST_PW_SOURCE = "env PUG_HOST_PASSWORD";
 var HOST_PASSWORD = process.env.PUG_HOST_PASSWORD || "";
 if (!HOST_PASSWORD) {
@@ -229,7 +233,7 @@ var clients = [];                 // live SSE connections
 // submission collection are written to a file, so a crash or restart mid-event
 // doesn't wipe the record viewers rely on (withdrawn and cut-short races, one
 // collection per commitment). Start with --fresh to ignore it.
-var STATE_FILE = path.join(ROOT, PORT === 8731 ? ".server-state.json" : ".server-state-" + PORT + ".json");
+var STATE_FILE = path.join(DATA_DIR, PORT === 8731 ? ".server-state.json" : ".server-state-" + PORT + ".json");
 var saveTimer = null;
 function stateJson() {
   return JSON.stringify({ version: 1, savedAt: Date.now(), lobby: lobby, commitLog: commitLog,
