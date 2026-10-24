@@ -51,7 +51,7 @@ Copy the folder to your server. Any of these work:
 
 ```bash
 # with git
-git clone <your-repo-url> pug-race && cd pug-race
+git clone https://github.com/Pugman/pug-race.git && cd pug-race
 
 # or copy an existing directory over SSH
 rsync -av ./pug_race/ user@your-server:/opt/pug-race/
