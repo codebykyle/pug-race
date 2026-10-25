@@ -3,6 +3,7 @@
 .host-password-*
 .operator-key
 .operator-key-*
+.env
 
 # the server's saved record of a live event
 .server-state*.json

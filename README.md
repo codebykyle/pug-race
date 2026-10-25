@@ -18,7 +18,7 @@ race can't be rigged and how the fairness math works, see **[DESIGN.md](DESIGN.m
 |------|-----------|
 | `index.html` | The entire game — self-contained, no dependencies, no build step. Works on its own via `file://`, or served by `server.js`. |
 | `server.js` | A tiny Node HTTP server for **watch parties**: it hands every viewer the seed so they recompute the identical race locally, and keeps their screens in sync. |
-| `Dockerfile`, `compose.yaml` | Container image for the watch server — see [Docker](#docker). |
+| `Dockerfile`, `compose.yaml`, `.env.example` | Container image for the watch server and its compose settings — see [Docker](#docker). |
 | `.github/workflows/docker.yml` | CI: runs the tests, then builds, smoke-tests and publishes the image. |
 | `run-race.sh` | Convenience wrapper that starts `server.js` and prints the links. |
 | `share-public.sh` | Opens a temporary public HTTPS URL via cloudflared, on demand. |
@@ -206,13 +206,24 @@ docker logs pug-race          # startup banner
 Then open `http://<server-ip>:8731/` to host and give viewers
 `http://<server-ip>:8731/watch`, exactly as in [Run it on a server](#run-it-on-a-server).
 
-**Or with compose**, from a clone of this repo (`compose.yaml` sets up the same
-port, volume and restart policy):
+**Or with compose**, from a clone of this repo. `compose.yaml` sets up the same
+port, volume and restart policy, and reads its settings from `.env`:
 
 ```bash
-PUG_HOST_PASSWORD='my-secret-phrase' docker compose up -d
+cp .env.example .env          # then edit .env
+docker compose up -d
 docker compose logs pug-race
 ```
+
+| `.env` setting | Default | What it does |
+|---|---|---|
+| `PUG_HOST_PASSWORD` | *(empty)* | The host password. Empty means one is generated, printed in the logs and saved in the volume. |
+| `PUG_PORT` | `8731` | Port on the host that serves the game. |
+| `PUG_BIND` | `0.0.0.0` | Host address to listen on. Use `127.0.0.1` behind a reverse proxy on the same machine. |
+| `PUG_IMAGE_TAG` | `latest` | Image tag to run, e.g. a release like `1.2.3` (see tags below). |
+
+`.env` is git-ignored because it holds the password; keep it `chmod 600`.
+After editing it, run `docker compose up -d` again to apply the changes.
 
 **Settings.**
 

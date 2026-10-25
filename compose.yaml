@@ -1,14 +1,15 @@
+# Settings come from .env (copy .env.example to get started).
 services:
   pug-race:
     # Pulls the published image; `docker compose up --build` builds this
     # checkout instead.
-    image: ghcr.io/pugman/pug-race:latest
+    image: ghcr.io/pugman/pug-race:${PUG_IMAGE_TAG:-latest}
     build: .
     ports:
-      - "8731:8731"
+      - "${PUG_BIND:-0.0.0.0}:${PUG_PORT:-8731}:8731"
     environment:
-      # Leave unset to have one generated (printed in `docker compose logs`
-      # and saved in the volume).
+      # Empty means generate one (printed in `docker compose logs` and saved
+      # in the volume).
       PUG_HOST_PASSWORD: ${PUG_HOST_PASSWORD:-}
     volumes:
       - pug-race-data:/data
